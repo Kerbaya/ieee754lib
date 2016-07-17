@@ -106,11 +106,4 @@ public class IEEE754Test
 			Assert.assertEquals(java, ieee, 0F);
 		}
 	}
-	
-	@Test
-	public void test2()
-	{
-		double d = Double.parseDouble(Double.toString(Double.MAX_VALUE));
-		System.out.println((float) d);
-	}
 }

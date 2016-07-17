@@ -25,13 +25,13 @@ package org.kerbaya.ieee754lib;
 
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.util.Objects;
 
 public abstract class IEEE754 extends Number
 {
 	private static final long serialVersionUID = 1036977833646325724L;
+	private static final int HC_PRIME = 31;
 
-	public static final class Constant extends IEEE754
+	private static final class Constant extends IEEE754
 	{
 		private static final long serialVersionUID = -947464815030155889L;
 		private final boolean negative;
@@ -46,7 +46,7 @@ public abstract class IEEE754 extends Number
 		}
 
 		@Override
-		protected void toBitsImpl(IEEE754Format format, BitSink out)
+		public void toBits(IEEE754Format format, BitSink out)
 		{
 			out.write(negative);
 			for (int i = 0; i < format.getExponentLength(); i++)
@@ -59,22 +59,44 @@ public abstract class IEEE754 extends Number
 				out.write(false);
 			}
 		}
+		
+		@Override
+		public int hashCode()
+		{
+			int hc = 1;
+			hc = hc * HC_PRIME + Boolean.valueOf(negative).hashCode();
+			hc = hc * HC_PRIME + Boolean.valueOf(exponent).hashCode();
+			hc = hc * HC_PRIME + Boolean.valueOf(mantissa).hashCode();
+			return hc;
+		}
+		
+		@Override
+		public boolean equals(Object obj)
+		{
+			if (obj == this)
+			{
+				return true;
+			}
+			if (!(obj instanceof Constant))
+			{
+				return false;
+			}
+			Constant other = (Constant) obj;
+			return negative == other.negative
+					&& exponent == other.exponent
+					&& mantissa == other.mantissa;
+		}
 	}
 	
-	public static final IEEE754 POSITIVE_ZERO;
-	public static final IEEE754 NEGATIVE_ZERO;
-	public static final IEEE754 POSITIVE_INFINITY;
-	public static final IEEE754 NEGATIVE_INFINITY;
-	public static final IEEE754 NaN;
-	
-	static
-	{
-		POSITIVE_ZERO = new Constant(false, false, false);
-		NEGATIVE_ZERO = new Constant(true, false, false);
-		POSITIVE_INFINITY = new Constant(false, true, false);
-		NEGATIVE_INFINITY = new Constant(true, true, false);
-		NaN = new Constant(false, true, true);
-	}
+	public static final IEEE754 POSITIVE_ZERO = 
+			new Constant(false, false, false);
+	public static final IEEE754 NEGATIVE_ZERO = 
+			new Constant(true, false, false);
+	public static final IEEE754 POSITIVE_INFINITY =
+			new Constant(false, true, false);
+	public static final IEEE754 NEGATIVE_INFINITY =
+			new Constant(true, true, false);
+	public static final IEEE754 NaN = new Constant(false, true, true);
 	
 	public static final class IEEE754Number extends IEEE754
 	{
@@ -109,7 +131,7 @@ public abstract class IEEE754 extends Number
 		}
 
 		@Override
-		protected void toBitsImpl(IEEE754Format format, BitSink out)
+		public void toBits(IEEE754Format format, BitSink out)
 		{
 			int significandLength = mantissa.bitLength() - 1;
 			BigInteger exponentBits = exponent.add(format.getExponentBias())
@@ -121,7 +143,7 @@ public abstract class IEEE754 extends Number
 						.add(exponentBits).compareTo(BigInteger.ZERO) <= 0)
 				{
 					IEEE754 zero = negative ? NEGATIVE_ZERO : POSITIVE_ZERO;
-					zero.toBitsImpl(format, out);
+					zero.toBits(format, out);
 					return;
 				}
 				mantissaBitIndex = significandLength - exponentBits.intValue();
@@ -136,7 +158,7 @@ public abstract class IEEE754 extends Number
 				{
 					IEEE754 infinity = negative ? 
 							NEGATIVE_INFINITY : POSITIVE_INFINITY;
-					infinity.toBitsImpl(format, out);
+					infinity.toBits(format, out);
 					return;
 				}
 				mantissaBitIndex = significandLength - 1;
@@ -164,7 +186,11 @@ public abstract class IEEE754 extends Number
 		@Override
 		public int hashCode()
 		{
-			return Objects.hash(negative, exponent, mantissa);
+			int hc = HC_PRIME;
+			hc = hc * HC_PRIME + Boolean.valueOf(negative).hashCode();
+			hc = hc * HC_PRIME + exponent.hashCode();
+			hc = hc * HC_PRIME + mantissa.hashCode();
+			return hc;
 		}
 		
 		@Override
@@ -187,18 +213,13 @@ public abstract class IEEE754 extends Number
 	
 	private IEEE754() {}
 	
-	protected abstract void toBitsImpl(IEEE754Format format, BitSink out);
-	
-	public final void toBits(IEEE754Format format, BitSink out)
-	{
-		toBitsImpl(format, out);
-	}
+	public abstract void toBits(IEEE754Format format, BitSink out);
 	
 	@Override
 	public final double doubleValue()
 	{
 		ByteBuffer buf = ByteBuffer.allocateDirect(8);
-		toBitsImpl(IEEE754Standard.DOUBLE, BitUtils.wrapSink(buf));
+		toBits(IEEE754Standard.DOUBLE, BitUtils.wrapSink(buf));
 		buf.rewind();
 		return buf.asDoubleBuffer().get();
 	}
@@ -207,7 +228,7 @@ public abstract class IEEE754 extends Number
 	public final float floatValue()
 	{
 		ByteBuffer buf = ByteBuffer.allocateDirect(4);
-		toBitsImpl(IEEE754Standard.SINGLE, BitUtils.wrapSink(buf));
+		toBits(IEEE754Standard.SINGLE, BitUtils.wrapSink(buf));
 		buf.rewind();
 		return buf.asFloatBuffer().get();
 	}
