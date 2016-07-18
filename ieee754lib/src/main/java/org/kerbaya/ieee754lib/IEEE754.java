@@ -36,13 +36,13 @@ public abstract class IEEE754 extends Number
 		private static final long serialVersionUID = -947464815030155889L;
 		private final boolean negative;
 		private final boolean exponent;
-		private final boolean mantissa;
+		private final boolean significand;
 		
-		public Constant(boolean negative, boolean exponent, boolean mantissa)
+		public Constant(boolean negative, boolean exponent, boolean significand)
 		{
 			this.negative = negative;
 			this.exponent = exponent;
-			this.mantissa = mantissa;
+			this.significand = significand;
 		}
 
 		@Override
@@ -53,7 +53,7 @@ public abstract class IEEE754 extends Number
 			{
 				out.write(exponent);
 			}
-			out.write(mantissa);
+			out.write(significand);
 			for (int i = 1; i < format.getMantissaLength(); i++)
 			{
 				out.write(false);
@@ -66,7 +66,7 @@ public abstract class IEEE754 extends Number
 			int hc = 1;
 			hc = hc * HC_PRIME + Boolean.valueOf(negative).hashCode();
 			hc = hc * HC_PRIME + Boolean.valueOf(exponent).hashCode();
-			hc = hc * HC_PRIME + Boolean.valueOf(mantissa).hashCode();
+			hc = hc * HC_PRIME + Boolean.valueOf(significand).hashCode();
 			return hc;
 		}
 		
@@ -84,7 +84,7 @@ public abstract class IEEE754 extends Number
 			Constant other = (Constant) obj;
 			return negative == other.negative
 					&& exponent == other.exponent
-					&& mantissa == other.mantissa;
+					&& significand == other.significand;
 		}
 	}
 	
@@ -101,23 +101,23 @@ public abstract class IEEE754 extends Number
 	public static final class IEEE754Number extends IEEE754
 	{
 		private static final long serialVersionUID = -3484143002408507123L;
-		private final boolean negative;
 		private final BigInteger exponent;
-		private final BigInteger mantissa;
+		private final BigInteger significand;
 		
 		public IEEE754Number(
-				boolean negative, 
 				BigInteger exponent,
-				BigInteger mantissa)
+				BigInteger significand)
 		{
-			this.negative = negative;
+			if (exponent == null)
+			{
+				throw new NullPointerException();
+			}
 			this.exponent = exponent;
-			this.mantissa = mantissa;
-		}
-		
-		public boolean isNegative()
-		{
-			return negative;
+			if (significand == null)
+			{
+				throw new NullPointerException();
+			}
+			this.significand = significand;
 		}
 		
 		public BigInteger getExponent()
@@ -125,17 +125,49 @@ public abstract class IEEE754 extends Number
 			return exponent;
 		}
 		
-		public BigInteger getMantissa()
+		public BigInteger getSignificand()
 		{
-			return mantissa;
+			return significand;
 		}
 
 		@Override
 		public void toBits(IEEE754Format format, BitSink out)
 		{
-			int significandLength = mantissa.bitLength() - 1;
-			BigInteger exponentBits = exponent.add(format.getExponentBias())
-					.add(BigInteger.valueOf(significandLength));
+			final boolean negative;
+			BigInteger roundedSignificand;
+			BigInteger adjustedExponent = this.exponent;
+			if (this.significand.signum() == -1)
+			{
+				negative = true;
+				roundedSignificand = significand.negate();
+			}
+			else
+			{
+				negative = false;
+				roundedSignificand = significand;
+			}
+			while (roundedSignificand.bitLength() > 
+					format.getMantissaLength() + 1)
+			{
+				boolean carry = roundedSignificand.testBit(0);
+				roundedSignificand = roundedSignificand.shiftRight(1);
+				adjustedExponent = adjustedExponent.add(BigInteger.ONE);
+				if (carry)
+				{
+					int bitIndex = 0;
+					while (roundedSignificand.testBit(bitIndex))
+					{
+						roundedSignificand = 
+								roundedSignificand.clearBit(bitIndex);
+						bitIndex++;
+					}
+					roundedSignificand = roundedSignificand.setBit(bitIndex);
+				}
+			}
+			int significandLength = roundedSignificand.bitLength() - 1;
+			BigInteger exponentBits = 
+					adjustedExponent.add(format.getExponentBias())
+							.add(BigInteger.valueOf(significandLength));
 			int mantissaBitIndex;
 			if (exponentBits.compareTo(BigInteger.ZERO) <= 0)
 			{
@@ -177,7 +209,7 @@ public abstract class IEEE754 extends Number
 				}
 				else
 				{
-					out.write(mantissa.testBit(mantissaBitIndex));
+					out.write(roundedSignificand.testBit(mantissaBitIndex));
 					mantissaBitIndex--;
 				}
 			}
@@ -187,9 +219,8 @@ public abstract class IEEE754 extends Number
 		public int hashCode()
 		{
 			int hc = HC_PRIME;
-			hc = hc * HC_PRIME + Boolean.valueOf(negative).hashCode();
 			hc = hc * HC_PRIME + exponent.hashCode();
-			hc = hc * HC_PRIME + mantissa.hashCode();
+			hc = hc * HC_PRIME + significand.hashCode();
 			return hc;
 		}
 		
@@ -205,9 +236,8 @@ public abstract class IEEE754 extends Number
 				return false;
 			}
 			IEEE754Number other = (IEEE754Number) obj;
-			return negative == other.negative
-					&& exponent.equals(other.exponent)
-					&& mantissa.equals(other.mantissa);
+			return exponent.equals(other.exponent)
+					&& significand.equals(other.significand);
 		}
 	}
 	
@@ -227,10 +257,7 @@ public abstract class IEEE754 extends Number
 	@Override
 	public final float floatValue()
 	{
-		ByteBuffer buf = ByteBuffer.allocateDirect(4);
-		toBits(IEEE754Standard.SINGLE, BitUtils.wrapSink(buf));
-		buf.rewind();
-		return buf.asFloatBuffer().get();
+		return (float) doubleValue();
 	}
 	
 	@Override
@@ -261,7 +288,7 @@ public abstract class IEEE754 extends Number
 	
 	public static IEEE754 decode(IEEE754Format format, BitSource in)
 	{
-		boolean negative = in.next();
+		final boolean negative = in.next();
 		BigInteger exponentBits = BigInteger.ZERO;
 		for (int i = format.getExponentLength() - 1; i >= 0; i--)
 		{
@@ -320,7 +347,9 @@ public abstract class IEEE754 extends Number
 		
 		exponent = exponent.add(exponentBits)
 				.subtract(format.getExponentBias());
-		return new IEEE754Number(negative, exponent, mantissa);
+		return new IEEE754Number(
+				exponent, 
+				negative ? mantissa.negate() : mantissa);
 	}
 	
 	@Override
