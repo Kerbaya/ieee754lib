@@ -133,18 +133,69 @@ public abstract class IEEE754 extends Number
 		@Override
 		public void toBits(IEEE754Format format, BitSink out)
 		{
-			final boolean negative;
-			BigInteger roundedSignificand;
-			BigInteger adjustedExponent = this.exponent;
+			final BigInteger mantissaBits;
 			if (this.significand.signum() == -1)
 			{
-				negative = true;
-				roundedSignificand = significand.negate();
+				out.write(true);
+				mantissaBits = significand.negate();
 			}
 			else
 			{
-				negative = false;
-				roundedSignificand = significand;
+				out.write(false);
+				mantissaBits = significand;
+			}
+			
+			BigInteger exponentBits = exponent
+					.add(BigInteger.valueOf(mantissaBits.bitLength() - 1))
+					.add(format.getExponentBias());
+			if (exponentBits.signum() == 1)
+			{
+				if (exponentBits.bitLength() > format.getExponentLength()
+						|| exponentBits.bitCount() == format.getExponentLength())
+				{
+					for (int i = 0; i < format.getExponentLength(); i++)
+					{
+						out.write(true);
+					}
+					for (int i = 0; i < format.getMantissaLength(); i++)
+					{
+						out.write(false);
+					}
+				}
+				else
+				{
+					for (int i = format.getExponentLength() - 1; i >= 0; i--)
+					{
+						out.write(exponentBits.testBit(i));
+					}
+					for (int i = 0; i < format.getMantissaLength(); i++)
+					{
+						int bitIndex = mantissaBits.bitLength() - 2 - i;
+						if (bitIndex >= 0)
+						{
+							out.write(mantissaBits.testBit(bitIndex));
+						}
+						else
+						{
+							out.write(false);
+						}
+					}
+				}
+			}
+			else
+			{
+				for (int i = 0; i < format.getExponentLength(); i++)
+				{
+					out.write(false);
+				}
+				
+			}
+			adjustedExponent.
+			if (adjustedExponent.bitLength() > format.getExponentLength()
+					|| (adjustedExponent.bitLength() == format.getExponentLength() 
+					&& adjustedExponent.bitCount() == format.getExponentLength()))
+			{
+				
 			}
 			while (roundedSignificand.bitLength() > 
 					format.getMantissaLength() + 1)
@@ -286,6 +337,15 @@ public abstract class IEEE754 extends Number
 		return decode(IEEE754Standard.SINGLE, BitUtils.wrapSource(buf));
 	}
 	
+	private static BigInteger trimRight(BigInteger i)
+	{
+		if (i.equals(BigInteger.ZERO))
+		{
+			return BigInteger.ZERO;
+		}
+		return i.shiftRight(i.getLowestSetBit());
+	}
+	
 	public static IEEE754 decode(IEEE754Format format, BitSource in)
 	{
 		final boolean negative = in.next();
@@ -297,59 +357,74 @@ public abstract class IEEE754 extends Number
 				exponentBits = exponentBits.setBit(i);
 			}
 		}
-		int exponentBitCount = exponentBits.bitCount();
-		if (exponentBitCount == format.getExponentLength())
+		
+		/*
+		 * Check for NaN or infinity
+		 */
+		if (exponentBits.bitCount() == format.getExponentLength())
 		{
 			boolean nan = false;
-			for (int i = 0; i < format.getMantissaLength(); i++)
+			int i;
+			for (i = 0; i < format.getMantissaLength(); i++)
 			{
-				if (in.next())
-				{
-					nan = true;
-				}
+				/*
+				 * No break here: we should consume all mantissa bits even if we
+				 * discover NaN before reading the last mantissa bit
+				 */
+				nan |= in.next();
 			}
 			return nan ? NaN : negative ? 
 					NEGATIVE_INFINITY : POSITIVE_INFINITY;
 		}
 		
-		BigInteger mantissa = BigInteger.ZERO;
+		BigInteger mantissaBits = BigInteger.ZERO;
 		for (int i = format.getMantissaLength() - 1; i >= 0; i--)
 		{
 			if (in.next())
 			{
-				mantissa = mantissa.setBit(i);
+				mantissaBits = mantissaBits.setBit(i);
 			}
 		}
 		
-		if (exponentBitCount == 0 && mantissa.bitCount() == 0)
+		/*
+		 * Check for zero or subnormal
+		 */
+		if (exponentBits.equals(BigInteger.ZERO))
 		{
-			return negative ? NEGATIVE_ZERO : POSITIVE_ZERO;
+			if (mantissaBits.equals(BigInteger.ZERO))
+			{
+				/*
+				 * Zero
+				 */
+				return negative ? NEGATIVE_ZERO : POSITIVE_ZERO;
+			}
+			
+			/*
+			 * Subnormal
+			 */
+			mantissaBits = mantissaBits.shiftRight(
+					mantissaBits.getLowestSetBit());
+			return new IEEE754Number(
+					BigInteger.ONE
+							.subtract(format.getExponentBias())
+							.subtract(BigInteger.valueOf(
+									mantissaBits.bitLength())),
+					negative ? mantissaBits.negate() : mantissaBits);
 		}
 		
-		BigInteger exponent = BigInteger.valueOf(format.getMantissaLength())
-				.negate();
-		if (exponentBitCount == 0)
+		if (!mantissaBits.equals(BigInteger.ZERO))
 		{
-			exponent = exponent.add(BigInteger.ONE);
-		}
-		else
-		{
-			mantissa = mantissa.setBit(format.getMantissaLength());
+			mantissaBits = mantissaBits.shiftRight(
+					mantissaBits.getLowestSetBit());
 		}
 		
-		int mantissaRightTrimLength = mantissa.getLowestSetBit();
-		if (mantissaRightTrimLength > 0)
-		{
-			mantissa = mantissa.shiftRight(mantissaRightTrimLength);
-			exponent = exponent.add(
-					BigInteger.valueOf(mantissaRightTrimLength));
-		}
-		
-		exponent = exponent.add(exponentBits)
-				.subtract(format.getExponentBias());
+		final int mantissaBitLength = mantissaBits.bitLength();
+		mantissaBits = mantissaBits.setBit(mantissaBitLength);
 		return new IEEE754Number(
-				exponent, 
-				negative ? mantissa.negate() : mantissa);
+				exponentBits
+						.subtract(format.getExponentBias())
+						.subtract(BigInteger.valueOf(mantissaBitLength)),
+				negative ? mantissaBits.negate() : mantissaBits);
 	}
 	
 	@Override
