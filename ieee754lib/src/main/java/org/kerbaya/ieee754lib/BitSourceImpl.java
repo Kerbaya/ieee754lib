@@ -25,21 +25,33 @@ package org.kerbaya.ieee754lib;
 
 abstract class BitSourceImpl implements BitSource
 {
-	private static final int MASK_FIRST_BIT = 0x80;
+	private static final int FIRST_BIT = 0x80;
+	private static final int LAST_BIT = 0x1;
 	
 	private int mask;
 	private int current;
 	
+	public BitSourceImpl()
+	{
+		mask = FIRST_BIT;
+	}
+	
 	@Override
 	public final boolean next()
 	{
-		if (mask == 0)
+		if (mask == FIRST_BIT)
 		{
-			mask = MASK_FIRST_BIT;
 			current = nextByte() & 0xFF;
 		}
 		boolean r = (current & mask) != 0;
-		mask >>= 1;
+		if (mask == LAST_BIT)
+		{
+			mask = FIRST_BIT;
+		}
+		else
+		{
+			mask >>= 1;
+		}
 		return r;
 	}
 

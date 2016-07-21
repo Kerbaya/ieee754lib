@@ -25,18 +25,49 @@ package org.kerbaya.ieee754lib;
 
 import java.nio.ByteBuffer;
 
-final class BufferBitSink extends BitSinkImpl
+final class BufferBitSink implements BitSink
 {
+	private static final int FIRST_BIT = 0x80;
+	private static final int LAST_BIT = 0x1;
+	
 	private final ByteBuffer dest;
+	
+	private int mask;
 
 	public BufferBitSink(ByteBuffer dest)
 	{
 		this.dest = dest;
+		mask = FIRST_BIT;
 	}
 
 	@Override
-	protected void writeByte(byte b)
+	public void write(boolean bit)
 	{
-		dest.put(b);
+		if (bit)
+		{
+			byte replacement = (byte) (dest.get(dest.position()) | mask);
+			if (mask == LAST_BIT)
+			{
+				dest.put(replacement);
+				mask = FIRST_BIT;
+			}
+			else
+			{
+				dest.put(dest.position(), replacement);
+				mask >>= 1;
+			}
+		}
+		else
+		{
+			if (mask == LAST_BIT)
+			{
+				dest.position(dest.position() + 1);
+				mask = FIRST_BIT; 
+			}
+			else
+			{
+				mask >>= 1;
+			}
+		}
 	}
 }

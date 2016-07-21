@@ -23,52 +23,49 @@
  */
 package org.kerbaya.ieee754lib;
 
-import java.nio.ByteBuffer;
-import java.nio.DoubleBuffer;
-
-import org.junit.Assert;
-import org.junit.Test;
-
-public class DoubleEncodeTest
+abstract class FlushableBitSinkImpl implements FlushableBitSink
 {
-	private static final int RANDOM_COUNT = 100000;
+	private static final int FIRST_BIT = 0x80;
+	private static final int LAST_BIT = 0x1;
 	
-	private final byte[] expecteds;
-	private final byte[] actuals;
-	private final DoubleBuffer buffer;
+	private int mask;
+	private int current;
 	
-	public DoubleEncodeTest()
+	public FlushableBitSinkImpl()
 	{
-		expecteds = new byte[8];
-		actuals = new byte[8];
-		buffer = ByteBuffer.wrap(expecteds).asDoubleBuffer();
+		mask = FIRST_BIT;
+		current = 0;
 	}
 	
-	private void test(double expected, IEEE754 actual)
+	@Override
+	public void flush()
 	{
-		buffer.put(0, expected);
-		actual.toBits(IEEE754Standard.DOUBLE, BitUtils.wrapSink(actuals));
-		Assert.assertArrayEquals(expecteds, actuals);
-	}
-	
-	@Test
-	public void encodeConstants()
-	{
-		test(Double.NaN, IEEE754.NaN);
-		test(Double.NEGATIVE_INFINITY, IEEE754.NEGATIVE_INFINITY);
-		test(Double.POSITIVE_INFINITY, IEEE754.POSITIVE_INFINITY);
-		test(0D, IEEE754.POSITIVE_ZERO);
-		test(-0D, IEEE754.NEGATIVE_ZERO);
-	}
-	
-	@Test
-	public void encodeRandom()
-	{
-		RandomFp random = new RandomFp();
-		for (int i = 0; i < RANDOM_COUNT; i++)
+		if (mask != FIRST_BIT)
 		{
-			double d = random.nextDouble();
-			test(d, IEEE754.valueOf(d));
+			writeByte((byte) current);
+			mask = FIRST_BIT;
+			current = 0;
 		}
 	}
+
+	@Override
+	public void write(boolean bit)
+	{
+		if (bit)
+		{
+			current |= mask;
+		}
+		if (mask == LAST_BIT)
+		{
+			writeByte((byte) current);
+			mask = FIRST_BIT;
+			current = 0;
+		}
+		else
+		{
+			mask >>= 1;
+		}
+	}
+	
+	protected abstract void writeByte(byte b);
 }

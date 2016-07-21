@@ -23,50 +23,7 @@
  */
 package org.kerbaya.ieee754lib;
 
-abstract class BitSinkImpl implements BitSink
+public interface FlushableBitSink extends BitSink
 {
-	private static final int MASK_CLOSED = 0;
-	private static final int MASK_FIRST_BIT = 0x80;
-	private static final int MASK_LAST_BIT = 0x1;
-	
-	private int mask = MASK_FIRST_BIT;
-	private int current;
-	
-	@Override
-	public void close()
-	{
-		if (mask != MASK_CLOSED)
-		{
-			if (mask != MASK_FIRST_BIT)
-			{
-				writeByte((byte) current);
-			}
-			mask = MASK_CLOSED;
-		}
-	}
-
-	@Override
-	public void write(boolean bit)
-	{
-		if (mask == MASK_CLOSED)
-		{
-			throw new IllegalStateException();
-		}
-		if (bit)
-		{
-			current |= mask;
-		}
-		if (mask == MASK_LAST_BIT)
-		{
-			writeByte((byte) current);
-			mask = MASK_FIRST_BIT;
-			current = 0;
-		}
-		else
-		{
-			mask >>= 1;
-		}
-	}
-	
-	protected abstract void writeByte(byte b);
+	void flush();
 }

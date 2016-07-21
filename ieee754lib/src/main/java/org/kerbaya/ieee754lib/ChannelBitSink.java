@@ -27,7 +27,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 
-final class ChannelBitSink extends BitSinkImpl
+final class ChannelBitSink extends FlushableBitSinkImpl
 {
 	private final WritableByteChannel dest;
 	private final ByteBuffer buffer;

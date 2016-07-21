@@ -59,12 +59,12 @@ public final class BitUtils
 		return wrapSource(ByteBuffer.wrap(source, offset, length));
 	}
 	
-	public static BitSink wrapSink(WritableByteChannel dest)
+	public static FlushableBitSink wrapSink(WritableByteChannel dest)
 	{
 		return new ChannelBitSink(dest);
 	}
 	
-	public static BitSink wrapSink(OutputStream dest)
+	public static FlushableBitSink wrapSink(OutputStream dest)
 	{
 		return wrapSink(Channels.newChannel(dest));
 	}

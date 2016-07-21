@@ -50,24 +50,14 @@ public class RandomFp
 	
 	public double nextDouble()
 	{
-		double v;
-		do
-		{
-			random.nextBytes(da);
-			v = db.get(0);
-		} while (Double.isNaN(v) || Double.isInfinite(v) || v == -0D);
-		return v;
+		random.nextBytes(da);
+		return db.get(0);
 	}
 	
 	public float nextFloat()
 	{
-		float v;
-		do
-		{
-			random.nextBytes(fa);
-			v = fb.get(0);
-		} while (Float.isNaN(v) || Float.isInfinite(v) || v == -0F);
-		return v;
+		random.nextBytes(fa);
+		return fb.get(0);
 	}
 	
 	public IEEE754 nextIee754(IEEE754Format format)
@@ -78,15 +68,7 @@ public class RandomFp
 		byte[] buf = new byte[
 				(bitCount >> 3) 
 				+ ((bitCount & 0x7) == 0 ? 0 : 1)];
-		IEEE754 v;
-		do
-		{
-			random.nextBytes(buf);
-			v = IEEE754.decode(format, BitUtils.wrapSource(buf));
-		} while (IEEE754.NaN.equals(v)
-				|| IEEE754.POSITIVE_INFINITY.equals(v) 
-				|| IEEE754.NEGATIVE_INFINITY.equals(v)
-				|| IEEE754.NEGATIVE_ZERO.equals(v));
-		return v;
+		random.nextBytes(buf);
+		return IEEE754.decode(format, BitUtils.wrapSource(buf));
 	}
 }

@@ -25,6 +25,5 @@ package org.kerbaya.ieee754lib;
 
 public interface BitSink
 {
-	void close();
 	void write(boolean bit);
 }
