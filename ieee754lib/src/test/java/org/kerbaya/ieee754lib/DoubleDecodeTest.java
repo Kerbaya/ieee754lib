@@ -128,7 +128,13 @@ public class DoubleDecodeTest
 	@Test
 	public void decodeRandom()
 	{
-		testDecode(Double.longBitsToDouble(0b1011111010100101101101110111001100111100111001000001101000010001L));
+		double d = Double.longBitsToDouble(0b0100011111101111111111111111111111100000000000000000000000000000L);
+		float f = (float) d;
+		System.out.println(d);
+		System.out.println(f);
+		System.out.println(d == f);
+//		System.out.println(Long.toString(Double.doubleToRawLongBits(Float.MAX_VALUE), 2));
+		
 //		long l = 0b1011011010011011001110011000100011100000010001010100100110010011L;
 //		double d = Double.longBitsToDouble(l);
 //		byte[] b = new byte[8];
