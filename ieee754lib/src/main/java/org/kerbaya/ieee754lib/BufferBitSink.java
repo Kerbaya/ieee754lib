@@ -43,31 +43,30 @@ final class BufferBitSink implements BitSink
 	@Override
 	public void write(boolean bit)
 	{
-		if (bit)
+		if (mask == LAST_BIT)
 		{
-			byte replacement = (byte) (dest.get(dest.position()) | mask);
-			if (mask == LAST_BIT)
+			if (bit)
 			{
-				dest.put(replacement);
-				mask = FIRST_BIT;
+				dest.put((byte) ((dest.get(dest.position()) & 0xFF) | mask));
 			}
 			else
 			{
-				dest.put(dest.position(), replacement);
-				mask >>= 1;
+				dest.position(dest.position() + 1);
 			}
+			mask = FIRST_BIT;
 		}
 		else
 		{
-			if (mask == LAST_BIT)
+			if (mask == FIRST_BIT)
 			{
-				dest.position(dest.position() + 1);
-				mask = FIRST_BIT; 
+				dest.put(dest.position(), (byte) (bit ? FIRST_BIT : 0));
 			}
-			else
+			else if (bit)
 			{
-				mask >>= 1;
+				dest.put(dest.position(), 
+						(byte) ((dest.get(dest.position()) & 0xFF) | mask));
 			}
+			mask >>= 1;
 		}
 	}
 }

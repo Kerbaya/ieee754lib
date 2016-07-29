@@ -29,7 +29,10 @@ import java.nio.FloatBuffer;
 import java.util.Random;
 
 /**
- * Will not return NaN's, infinities, or negative-zero
+ * Generates random floating point values
+ * 
+ * Note that there are multiple patterns that represent NaN, so expect NaNs to 
+ * occur more frequently than other numbers.
  */
 public class RandomFp
 {

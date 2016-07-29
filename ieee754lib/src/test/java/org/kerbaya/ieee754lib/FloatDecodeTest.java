@@ -31,46 +31,59 @@ import org.kerbaya.ieee754lib.IEEE754.IEEE754Number;
 
 public class FloatDecodeTest
 {
-	private void testDecode(float testValue)
+	private void testDecode(float expectedFloat)
 	{
-		ByteBuffer buf = ByteBuffer.allocateDirect(8);
-		buf.asFloatBuffer().put(0, testValue);
-		IEEE754 ieee = IEEE754.decode(
-				IEEE754Standard.SINGLE, BitUtils.wrapSource(buf));
-		if (testValue == Float.POSITIVE_INFINITY)
+		byte[] expectedFloatBuf = new byte[4];
+		ByteBuffer.wrap(expectedFloatBuf).asFloatBuffer().put(0, expectedFloat);
+		IEEE754 actualIeee = IEEE754.decode(
+				IEEE754Format.SINGLE, BitUtils.wrapSource(expectedFloatBuf));
+		if (Float.isNaN(expectedFloat))
 		{
-			Assert.assertSame(IEEE754.POSITIVE_INFINITY, ieee);
+			Assert.assertSame("decoding NaN", IEEE754.NaN, actualIeee);
+			/*
+			 * Our library doesn't retain NaN values, so we'll narrow the value 
+			 * and buffer to the NaN constant (only the first mantissa bit is 
+			 * set)
+			 */
+			expectedFloat = Float.NaN;
+			ByteBuffer.wrap(expectedFloatBuf).asFloatBuffer().put(
+					0, expectedFloat);
 		}
-		else if (testValue == Float.NEGATIVE_INFINITY)
+		else if (expectedFloat == Float.POSITIVE_INFINITY)
 		{
-			Assert.assertSame(IEEE754.NEGATIVE_INFINITY, ieee);
+			Assert.assertSame("decoding positive infinity", IEEE754.POSITIVE_INFINITY, actualIeee);
 		}
-		else if (Float.floatToIntBits(testValue) 
+		else if (expectedFloat == Float.NEGATIVE_INFINITY)
+		{
+			Assert.assertSame("decoding negative infinity", IEEE754.NEGATIVE_INFINITY, actualIeee);
+		}
+		else if (Float.floatToIntBits(expectedFloat)
 				== Float.floatToIntBits(-0F))
 		{
-			Assert.assertSame(IEEE754.NEGATIVE_ZERO, ieee);
+			Assert.assertSame("decoding negative zero", IEEE754.NEGATIVE_ZERO, actualIeee);
 		}
-		else if (testValue == 0F)
+		else if (expectedFloat == 0F)
 		{
-			Assert.assertSame(IEEE754.POSITIVE_ZERO, ieee);
-		}
-		else if (Float.isNaN(testValue))
-		{
-			Assert.assertSame(IEEE754.NaN, ieee);
+			Assert.assertSame("decoding positive zero", IEEE754.POSITIVE_ZERO, actualIeee);
 		}
 		else
 		{
-			Assert.assertTrue(ieee instanceof IEEE754Number);
-			IEEE754Number in = (IEEE754Number) ieee;
-			float actual = in.getSignificand().floatValue() 
-					* (float) Math.pow(2D, in.getExponent().doubleValue());
-			if (actual != testValue)
-			{
-				System.out.println(in);
-			}
-			Assert.assertEquals(testValue, actual, 0F);
+			Assert.assertTrue("decoding number", actualIeee instanceof IEEE754Number);
+			IEEE754Number in = (IEEE754Number) actualIeee;
+			float actualFloat = (float) (in.getSignificand().doubleValue() 
+					* Math.pow(2D, in.getExponent().doubleValue()));
+			Assert.assertEquals("correct exponent & significand", expectedFloat, actualFloat, 0F);
 		}
-		Assert.assertEquals(testValue, ieee.floatValue(), 0F);
+		
+		byte[] actualFloatBuf = new byte[4];
+		actualIeee.toBits(IEEE754Format.SINGLE, BitUtils.wrapSink(actualFloatBuf));
+		Assert.assertArrayEquals("round-trip encoding", expectedFloatBuf, actualFloatBuf);
+		
+		byte[] expectedDoubleBuf = new byte[8];
+		ByteBuffer.wrap(expectedDoubleBuf).asDoubleBuffer().put(0, expectedFloat);
+		byte[] actualDoubleBuf = new byte[8];
+		actualIeee.toBits(IEEE754Format.DOUBLE, BitUtils.wrapSink(actualDoubleBuf));
+		Assert.assertArrayEquals("upcast encoding", expectedDoubleBuf, actualDoubleBuf);
 	}
 	
 	@Test
@@ -81,6 +94,9 @@ public class FloatDecodeTest
 		testDecode(Float.NaN);
 		testDecode(0F);
 		testDecode(-0F);
+		testDecode(Float.MAX_VALUE);
+		testDecode(Float.MIN_VALUE);
+		testDecode(Float.MIN_NORMAL);
 	}
 	
 	@Test

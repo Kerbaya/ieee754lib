@@ -25,9 +25,55 @@ package org.kerbaya.ieee754lib;
 
 import java.math.BigInteger;
 
-public interface IEEE754Format
+public class IEEE754Format
 {
-	int getExponentLength();
-	int getMantissaLength();
-	BigInteger getExponentBias();
+	public static final IEEE754Format HALF = new IEEE754Format(5, 10, 15);
+	public static final IEEE754Format SINGLE = new IEEE754Format(8, 23, 127);
+	public static final IEEE754Format DOUBLE = new IEEE754Format(11, 52, 1023);
+	public static final IEEE754Format QUADRUPLE = new IEEE754Format(15, 112, 16383);
+
+	private final int exponentLength;
+	private final int mantissaLength;
+	private final BigInteger exponentBias;
+	
+	public IEEE754Format(
+			int exponentLength, 
+			int mantissaLength,
+			BigInteger exponentBias)
+	{
+		if (exponentLength < 2
+				|| mantissaLength < 1
+				|| exponentBias == null)
+		{
+			throw new IllegalArgumentException();
+		}
+		this.exponentLength = exponentLength;
+		this.mantissaLength = mantissaLength;
+		this.exponentBias = exponentBias;
+	}
+	
+	private IEEE754Format(
+			int exponentLength, 
+			int mantissaLength,
+			int exponentBias)
+	{
+		this.exponentLength = exponentLength;
+		this.mantissaLength = mantissaLength;
+		this.exponentBias = BigInteger.valueOf(exponentBias);
+	}
+	
+	public int getExponentLength()
+	{
+		return exponentLength;
+	}
+	
+	public int getMantissaLength()
+	{
+		return mantissaLength;
+	}
+	
+	public BigInteger getExponentBias()
+	{
+		return exponentBias;
+	}
 }
