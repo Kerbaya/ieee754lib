@@ -1,7 +1,7 @@
 # ieee754lib
 Java library for encoding/decoding floating point numbers to/from IEEE 754 bit strings
 
-Encoding and decoding of all basic interchange formats is supported:
+Encoding, decoding, and conversion of all basic interchange formats is supported:
 
 | Name        | Common name | Exponent bits | Significand bits | Exponent bias |
 |:----------- |:----------- | -------------:| ----------------:| -------------:|
